@@ -5,6 +5,10 @@ const jwt = require("jsonwebtoken");
 const keys = require("../../config/keys");
 const passport = require("passport");
 
+// Load input validation
+const validateRegisterInput = require("../../validations/register");
+const validateLoginInput = require("../../validations/login");
+
 const router = express.Router();
 
 // Load user model
@@ -20,10 +24,17 @@ router.get("/test", (req, res) => res.json({ msg: "users works" }));
 // @desc    Register a user
 // @access  Public
 router.post("/register", (req, res) => {
+  const { errors, isValid } = validateRegisterInput(req.body);
+
+  // check validation
+  if (!isValid) {
+    return res.status(400).json(errors);
+  }
   User.findOne({ email: req.body.email })
     .then(user => {
       if (user) {
-        return res.status(400).json({ email: "Email already exists." });
+        errors.email = "Email already exists.";
+        return res.status(400).json(errors);
       } else {
         const avatar1 = gravatar.url(req.body.email, {
           s: "200", // Size of avatar
@@ -36,7 +47,7 @@ router.post("/register", (req, res) => {
           avatar: avatar1,
           password: req.body.password
         });
-        console.log(newUser);
+        // console.log(newUser);
         bcrypt.genSalt(10, (err, salt) => {
           bcrypt.hash(newUser.password, salt, (err, hash) => {
             if (err) throw err;
@@ -56,6 +67,12 @@ router.post("/register", (req, res) => {
 // @desc    Login a user / Return JWT tocken
 // @access  Public
 router.post("/login", (req, res) => {
+  const { errors, isValid } = validateLoginInput(req.body);
+
+  // check validation
+  if (!isValid) {
+    return res.status(400).json(errors);
+  }
   const email = req.body.email;
   const password = req.body.password;
 
@@ -63,7 +80,8 @@ router.post("/login", (req, res) => {
     // check if user has returned
 
     if (!user) {
-      return res.status(404).json({ email: "User not found." });
+      errors.email = "User not found.";
+      return res.status(404).json(errors);
     }
 
     // compare password from request to database
@@ -84,7 +102,8 @@ router.post("/login", (req, res) => {
           }
         );
       } else {
-        return res.status(400).json({ password: "Password incorrect." });
+        errors.password = "Password is incorrect.";
+        return res.status(400).json(errors);
       }
     });
   });
@@ -101,7 +120,9 @@ router.get(
     res.json({
       id: req.user.id,
       name: req.user.name,
-      email: req.user.email
+      email: req.user.email,
+      password: req.user.password,
+      password2: req.user.password2
     });
   }
 );
